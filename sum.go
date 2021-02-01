@@ -1,6 +1,7 @@
 package multihash
 
 import (
+	"bytes"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha512"
@@ -180,6 +181,75 @@ func sumSHA3_224(data []byte, length int) ([]byte, error) {
 	return a[:], nil
 }
 
+func sumSha256NamespaceTagged8(data []byte, _length int) ([]byte, error) {
+	const (
+		// TODO(liamsi): can we (mis)use the length param to determine the namespaceLength?
+		// for now we simply hardcode the default used in LL: 8 bytes
+		namespaceLen       = 8
+		maxNamespaceByte   = 0xFF
+		flagLen            = 2 * namespaceLen
+		sha256Len          = sha256.Size
+		domainSeparatorLen = 1
+	)
+	leafPrefix := byte(0)
+	if len(data) == 0 {
+		emptyNs := bytes.Repeat([]byte{0}, namespaceLen)
+		h, _ := sumSHA256(nil, 0)
+		return append(append(emptyNs, emptyNs...), h...), nil
+	}
+	isLeafData := data[0] == leafPrefix
+	if isLeafData {
+		rawNamespacedLeaf := data[domainSeparatorLen:]
+		nID := rawNamespacedLeaf[:namespaceLen]
+		flag := append(append(make([]byte, 0), nID...), nID...)
+		digest, _ := sumSHA256(data, len(data))
+
+		return append(flag, digest...), nil
+	}
+	// inner node:
+	// data := NodePrefix || l || r
+	// with l and r being 'flagged' with their min and max
+	// namespace themselves respectively
+	rawData := data[domainSeparatorLen:]
+	left := rawData[:flagLen+sha256Len]
+	right := rawData[flagLen+sha256Len:]
+	// extract namespaces from data:
+	leftMinNs, leftMaxNs := left[:namespaceLen], left[namespaceLen:flagLen]
+	rightMinNs, rightMaxNs := right[:namespaceLen], right[namespaceLen:flagLen]
+	maxPossibleNamespace := bytes.Repeat([]byte{maxNamespaceByte}, namespaceLen)
+
+	minNs := min(leftMinNs, rightMinNs)
+	var maxNs []byte
+	// we always 'ignore' the max possible namespace (0xFFFFFFFFFFFFFFFF)
+	// see note about PARITY_SHARE_NAMESPACE_ID in: https://github.com/lazyledger/lazyledger-specs/blob/master/specs/data_structures.md#namespace-merkle-tree
+	if bytes.Equal(maxPossibleNamespace, leftMinNs) {
+		maxNs = maxPossibleNamespace
+	} else if bytes.Equal(maxPossibleNamespace, rightMinNs) {
+		maxNs = leftMaxNs
+	} else {
+		maxNs = max(leftMaxNs, rightMaxNs)
+	}
+	flag := append(append(make([]byte, 0), minNs...), maxNs...)
+	// note that the passed in data already is NodePrefix || l || r
+	digest, _ := sumSHA256(data, len(data))
+
+	return append(flag, digest...), nil
+}
+
+func min(ns []byte, ns2 []byte) []byte {
+	if bytes.Compare(ns, ns2) <= 0 {
+		return ns
+	}
+	return ns2
+}
+
+func max(ns []byte, ns2 []byte) []byte {
+	if bytes.Compare(ns, ns2) >= 0 {
+		return ns
+	}
+	return ns2
+}
+
 func registerStdlibHashFuncs() {
 	RegisterHashFunc(IDENTITY, sumID)
 	RegisterHashFunc(SHA1, sumSHA1)
@@ -203,6 +273,8 @@ func registerNonStdlibHashFuncs() {
 
 	RegisterHashFunc(SHAKE_128, sumSHAKE128)
 	RegisterHashFunc(SHAKE_256, sumSHAKE256)
+
+	RegisterHashFunc(SHA2_256_NAMESPACE_TAGGED, sumSha256NamespaceTagged8)
 
 	// Blake family of hash functions
 	// BLAKE2S

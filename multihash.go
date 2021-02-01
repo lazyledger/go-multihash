@@ -71,6 +71,8 @@ const (
 	SHA2_256_TRUNC254_PADDED  = 0x1012
 	X11                       = 0x1100
 	POSEIDON_BLS12_381_A1_FC1 = 0xb401
+	// LazyLedger's tagged sha256
+	SHA2_256_NAMESPACE_TAGGED = 0x7701
 )
 
 func init() {
@@ -116,6 +118,7 @@ var Names = map[string]uint64{
 	"x11":                       X11,
 	"md5":                       MD5,
 	"poseidon-bls12_381-a2-fc1": POSEIDON_BLS12_381_A1_FC1,
+	"sha2-256-namespace-tagged": SHA2_256_NAMESPACE_TAGGED,
 }
 
 // Codes maps a hash code to it's name
@@ -140,6 +143,7 @@ var Codes = map[uint64]string{
 	X11:                       "x11",
 	POSEIDON_BLS12_381_A1_FC1: "poseidon-bls12_381-a2-fc1",
 	MD5:                       "md5",
+	SHA2_256_NAMESPACE_TAGGED: "sha2-256-namespace-tagged",
 }
 
 // DefaultLengths maps a hash code to it's default length
@@ -162,6 +166,9 @@ var DefaultLengths = map[uint64]int{
 	SHAKE_256:    64,
 	X11:          64,
 	MD5:          16,
+
+	// 8+8+SHA2_256:
+	SHA2_256_NAMESPACE_TAGGED: 48,
 }
 
 func uvarint(buf []byte) (uint64, []byte, error) {
