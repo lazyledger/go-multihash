@@ -201,8 +201,9 @@ func sumSha256NamespaceTagged8(data []byte, _length int) ([]byte, error) {
 	if isLeafData {
 		rawNamespacedLeaf := data[domainSeparatorLen:]
 		nID := rawNamespacedLeaf[:namespaceLen]
+		leafData := rawNamespacedLeaf[namespaceLen:]
 		flag := append(append(make([]byte, 0), nID...), nID...)
-		digest, _ := sumSHA256(data, len(data))
+		digest, _ := sumSHA256(leafData, len(leafData))
 
 		return append(flag, digest...), nil
 	}
