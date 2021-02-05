@@ -199,11 +199,15 @@ func sumSha256NamespaceTagged8(data []byte, _length int) ([]byte, error) {
 	}
 	isLeafData := data[0] == leafPrefix
 	if isLeafData {
+		// Block is: leafPrefix || id || rawLeafData
+		// hash of block has to be:
+		// id || id || sha256(leafPrefix || rawLeafData)
 		rawNamespacedLeaf := data[domainSeparatorLen:]
 		nID := rawNamespacedLeaf[:namespaceLen]
 		leafData := rawNamespacedLeaf[namespaceLen:]
 		flag := append(append(make([]byte, 0), nID...), nID...)
-		digest, _ := sumSHA256(leafData, len(leafData))
+		leafPrefixedRawData := append([]byte{leafPrefix}, leafData...)
+		digest, _ := sumSHA256(leafPrefixedRawData, len(leafPrefixedRawData))
 
 		return append(flag, digest...), nil
 	}
